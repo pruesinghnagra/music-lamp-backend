@@ -1,7 +1,0 @@
-{
-  "functions": {
-    "index.ts": {
-      "runtime": "@vercel/node@18"
-    }
-  }
-}
