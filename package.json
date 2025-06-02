@@ -4,34 +4,24 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon --exec ts-node --esm ./index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js"
+    "dev": "vercel dev",
+    "build": "vercel build",
+    "start": "vercel dev",
+    "deploy": "vercel --prod"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@fastify/cors": "^11.0.1",
     "axios": "^1.9.0",
+    "cors": "^2.8.5",
     "dotenv": "^16.5.0",
-    "fastify": "^5.3.3"
+    "express": "^5.1.0"
   },
   "devDependencies": {
-    "@types/node": "^22.15.29",
-    "nodemon": "^3.1.10",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
-  },
-  "nodemonConfig": {
-    "watch": [
-      "server"
-    ],
-    "ext": "ts",
-    "ignore": [
-      "dist"
-    ],
-    "exec": "ts-node ./index.ts"
+    "@types/cors": "^2.8.18",
+    "@types/express": "^5.0.2",
+    "nodemon": "^3.1.10"
   }
 }
