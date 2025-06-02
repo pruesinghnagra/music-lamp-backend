@@ -1,7 +1,7 @@
-import { Request, Response } from "express";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import axios from "axios";
 
-export default async (req: Request, res: Response) => {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "GET") {
         return res.status(405).json({ error: "Method not allowed" });
     }
@@ -24,8 +24,9 @@ export default async (req: Request, res: Response) => {
             },
         );
 
-        res.json(response.data);
+        res.status(200).json(response.data);
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: "Failed to get Spotify token" });
     }
-};
+}
