@@ -7,12 +7,16 @@ const prisma = new PrismaClient();
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { slug } = req.query;
 
-    res.setHeader(
-        "Access-Control-Allow-Origin",
-        process.env.NODE_ENV === "production"
-            ? "https://music-lamp.vercel.app"
-            : "http://localhost:5173",
-    );
+    const allowedOrigins = [
+        "http://localhost:5173",
+        "https://music-lamp.vercel.app",
+    ];
+    const origin = req.headers.origin;
+
+    if (origin && allowedOrigins.includes(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+
     res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
