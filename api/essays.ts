@@ -3,9 +3,24 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    const { method, url } = req;
+const allowedOrigins = [
+    "http://localhost:5173",
+    "https://music-lamp.vercel.app",
+];
 
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.includes(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+        return res.status(200).end();
+    }
+
+    const { method, url } = req;
     const match = url?.match(/\/api\/essays\/([^\/\?]+)/);
     const slug = match?.[1];
 
