@@ -5,6 +5,9 @@
   "engines": {
     "node": ">=18 <21"
   },
+  "scripts": {
+    "postinstall": "prisma generate"
+  },
   "prisma": {
     "seed": "node --loader ts-node/esm prisma/seed.ts"
   },
