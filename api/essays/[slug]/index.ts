@@ -1,3 +1,5 @@
+// For the slug file
+
 import { PrismaClient } from "@prisma/client";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
