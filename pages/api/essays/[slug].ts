@@ -14,7 +14,7 @@ export default async function handler(
         "http://localhost:5173",
         "https://music-lamp.vercel.app",
     ];
-    const origin = headers.origin;
+    const origin = headers.origin || "";
     if (origin && allowedOrigins.includes(origin)) {
         res.setHeader("Access-Control-Allow-Origin", origin);
     }
