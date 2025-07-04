@@ -7,8 +7,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { method, url, headers } = req;
 
     console.log("Request URL:", url);
-    const slug = url?.split("/")[3];
-    console.log("Matched slug:", slug);
+    const parts = url?.split("/") || [];
+    const slug = parts.length >= 4 ? parts[3] : undefined;
 
     // CORS
     const allowedOrigins = [
