@@ -7,8 +7,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { method, url, headers } = req;
 
     console.log("Request URL:", url);
-    const match = url?.match(/\/api\/essays\/([^\/\?]+)/);
-    const slug = match?.[1];
+    const slug = url?.split("/")[1];
     console.log("Matched slug:", slug);
 
     // CORS
