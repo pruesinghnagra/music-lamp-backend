@@ -1,7 +1,10 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { NextApiRequest, NextApiResponse } from "next";
 import axios from "axios";
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(
+    req: NextApiRequest,
+    res: NextApiResponse,
+) {
     const allowedOrigin = process.env.NODE_ENV === "production"
         ? "https://music-lamp.vercel.app"
         : "http://localhost:5173";

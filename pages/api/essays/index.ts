@@ -1,17 +1,14 @@
 import { PrismaClient } from "@prisma/client";
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+import type { NextApiRequest, NextApiResponse } from "next";
 
 const prisma = new PrismaClient();
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    const { method, url, headers } = req;
+export default async function handler(
+    req: NextApiRequest,
+    res: NextApiResponse,
+) {
+    const { method, headers } = req;
 
-    console.log("Request URL:", url);
-    const parts = url?.split("/") || [];
-    const slug = parts.length === 4 ? parts[3] : undefined;
-    console.log("slug and part:", slug, parts);
-
-    // CORS
     const allowedOrigins = [
         "http://localhost:5173",
         "https://music-lamp.vercel.app",
@@ -25,22 +22,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (method === "OPTIONS") {
         return res.status(200).end();
-    }
-
-    if (method === "GET" && slug) {
-        try {
-            const essay = await prisma.essay.findUnique({ where: { slug } });
-
-            if (!essay) {
-                console.log("No essay found for slug:", slug);
-                return res.status(404).json({ error: "Essay not found" });
-            }
-
-            return res.status(200).json(essay);
-        } catch (err) {
-            console.error("Error fetching single essay:", err);
-            return res.status(500).json({ error: "Server error" });
-        }
     }
 
     if (method === "GET") {
