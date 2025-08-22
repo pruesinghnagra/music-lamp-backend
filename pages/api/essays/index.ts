@@ -73,7 +73,7 @@ export default async function handler(
                     tags: { include: { tag: true } }, // The join
                 },
             });
-            return res.status(200).json(essays);
+            return res.status(200).json(flattenTagNames(essays));
         } catch (err) {
             console.error("Error fetching essays:", err);
             return res.status(500).json({ error: "Server error" });
