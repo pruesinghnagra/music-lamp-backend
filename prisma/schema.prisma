@@ -7,12 +7,65 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum EssayStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
 model Essay {
-  id        String   @id @default(uuid())
-  title     String
-  slug      String   @unique
-  content   String
-  tags      String[] // this uses Postgres' native array type
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String      @id @default(uuid())
+  title         String
+  slug          String      @unique @db.VarChar(120)
+  content       String
+  coverImage    String?
+  imageCredit   String?     // credit for cover only (optional)
+  albumRefProvider String?
+  albumRefId    String?
+  status        EssayStatus @default(DRAFT)
+  publishedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // relations
+  tags          EssayTag[]
+  images        Media[]
+
+  @@index([status])
+  @@index([publishedAt])
+  @@index([status, publishedAt])
+}
+
+model Tag {
+  id     String     @id @default(cuid())
+  name   String     @unique
+  essays EssayTag[]
+}
+
+model EssayTag {
+  essayId String
+  tagId   String
+  essay   Essay @relation(fields: [essayId], references: [id], onDelete: Cascade)
+  tag     Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([essayId, tagId])
+  @@index([tagId])
+}
+
+model Media {
+  id       String  @id @default(cuid())
+  essayId  String
+  url      String
+  alt      String?
+  credit   String?
+  width    Int?
+  height   Int?
+  order    Int     @default(0)
+  provider String?
+  sourceId String?
+
+  essay    Essay   @relation(fields: [essayId], references: [id], onDelete: Cascade)
+
+  @@index([essayId])
+  @@index([order])
 }
