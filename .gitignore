@@ -16,8 +16,7 @@ dist/
 .vercel/
 
 # Prisma generated files (adjust if not accurate)
-generated/
-generated/prisma/
+prisma/migrations
 
 # Mac system files
 .DS_Store
