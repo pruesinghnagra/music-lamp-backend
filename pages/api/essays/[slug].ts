@@ -1,72 +1,27 @@
-import { EssayStatus, PrismaClient } from "@prisma/client";
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const API_KEY = process.env.API_KEY || "";
-
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-
-export const prisma = globalForPrisma.prisma ??
-    new PrismaClient({ log: ["warn", "error"] });
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-
-const allowedOrigins = [
-    "http://localhost:5173",
-    "https://music-lamp.vercel.app",
-];
-
-function requireApiKey(req: NextApiRequest, res: NextApiResponse): boolean {
-    const key = req.headers["x-api-key"];
-    if (!API_KEY || key !== API_KEY) {
-        res.status(401).json({ error: "Unauthorized" });
-        return false;
-    }
-    return true;
-}
-
-function flattenTags(essay: any) {
-    if (!essay) return essay;
-    return {
-        ...essay,
-        tags: (essay.tags ?? []).map((essayTag: any) => essayTag.tag.name),
-    };
-}
-
-function nextPublishedAt(
-    incomingStatus: string | undefined,
-    prev: { status: string; publishedAt: Date | null } | null,
-) {
-    if (incomingStatus === "PUBLISHED") {
-        // set once and don't overwrite
-        return prev?.publishedAt ?? new Date();
-    }
-
-    if (incomingStatus && incomingStatus !== "PUBLISHED") {
-        return null;
-    }
-
-    return undefined;
-}
+import { isValidStatus } from "@lib/status";
+import { prisma } from "@lib/prisma";
+import { requireApiKey } from "@lib/requireApiKey";
+import { flattenEssay, nextPublishedAt } from "@lib/essay";
+import { setCorsHeaders } from "@lib/cors";
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse,
 ) {
+    setCorsHeaders(res, req.headers.origin, [
+        "GET",
+        "PUT",
+        "DELETE",
+        "OPTIONS",
+    ]);
+
     const { method, query, headers, body } = req;
     const slug = query.slug as string;
     if (!slug) return res.status(400).json({ error: "slug required" });
 
-    // CORS
-    const origin = headers.origin || "";
-    if (origin && allowedOrigins.includes(origin)) {
-        res.setHeader("Access-Control-Allow-Origin", origin);
-    }
-    res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Methods", "GET,PUT,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-api-key");
-
     if (method === "OPTIONS") {
-        res.setHeader("Allow", "GET,PUT,DELETE,OPTIONS");
         return res.status(204).end();
     }
 
@@ -83,7 +38,7 @@ export default async function handler(
             if (!essay) {
                 return res.status(404).json({ error: "Essay not found" });
             }
-            return res.status(200).json(flattenTags(essay));
+            return res.status(200).json(flattenEssay(essay));
         } catch (err) {
             console.error("GET /essays/[slug] error", err);
             return res.status(500).json({ error: "Server error" });
@@ -122,11 +77,8 @@ export default async function handler(
             }
             if (albumRefId !== undefined) data.albumRefId = albumRefId ?? null;
 
-            if (
-                typeof status === "string" &&
-                (Object.values(EssayStatus) as string[]).includes(status)
-            ) {
-                data.status = status as EssayStatus;
+            if (isValidStatus(status)) {
+                data.status = status;
             }
 
             if (tags !== undefined) {
@@ -161,7 +113,7 @@ export default async function handler(
                 },
             });
 
-            return res.status(200).json(flattenTags(updated));
+            return res.status(200).json(flattenEssay(updated));
         } catch (err: any) {
             console.error("PUT /essays/[slug] error:", err);
             if (err.code === "P2025") {

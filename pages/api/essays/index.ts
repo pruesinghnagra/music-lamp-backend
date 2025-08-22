@@ -1,66 +1,23 @@
-import { EssayStatus, PrismaClient } from "@prisma/client";
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const API_KEY = process.env.API_KEY || "";
-
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
-
-export const prisma = globalForPrisma.prisma ??
-    new PrismaClient({ log: ["warn", "error"] });
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
-
-const allowedOrigins = [
-    "http://localhost:5173",
-    "https://music-lamp.vercel.app",
-];
-
-function requireApiKey(req: NextApiRequest, res: NextApiResponse): boolean {
-    const key = req.headers["x-api-key"];
-    if (!API_KEY || key !== API_KEY) {
-        res.status(401).json({ error: "Unauthorized" });
-        return false;
-    }
-    return true;
-}
-
-function flattenTagNames(essays: any[]) {
-    return essays.map((essay) => ({
-        ...essay,
-        tags: (essay.tags ?? []).map((essayTag: any) => essayTag.tag.name),
-    }));
-}
-
-function nextPublishedAt(
-    incomingStatus: string | undefined,
-    prev: { status: string; publishedAt: Date | null } | null,
-) {
-    if (incomingStatus === "PUBLISHED") {
-        // set once and don't overwrite
-        return prev?.publishedAt ?? new Date();
-    }
-
-    if (incomingStatus && incomingStatus !== "PUBLISHED") {
-        return null;
-    }
-
-    return undefined;
-}
+import { isValidStatus } from "@lib/status";
+import type { EssayStatus } from "@lib/status";
+import { prisma } from "@lib/prisma";
+import { requireApiKey } from "@lib/requireApiKey";
+import { flattenEssay, nextPublishedAt } from "@lib/essay";
+import { setCorsHeaders } from "@lib/cors";
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse,
 ) {
-    const { method, headers, query, body } = req;
+    setCorsHeaders(res, req.headers.origin, [
+        "GET",
+        "POST",
+        "OPTIONS",
+    ]);
 
-    // CORS
-    const origin = headers.origin || "";
-    if (origin && allowedOrigins.includes(origin)) {
-        res.setHeader("Access-Control-Allow-Origin", origin);
-    }
-    res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-api-key");
+    const { method, headers, query, body } = req;
 
     if (method === "OPTIONS") {
         res.setHeader("Allow", "GET,POST,OPTIONS");
@@ -70,26 +27,17 @@ export default async function handler(
     if (method === "GET") {
         try {
             const statusQuery = query.status as string | undefined;
-            const where = statusQuery &&
-                    (Object.values(EssayStatus) as string[]).includes(
-                        statusQuery,
-                    )
-                ? { status: statusQuery as EssayStatus }
+            const where = statusQuery && isValidStatus(statusQuery)
+                ? { status: statusQuery }
                 : {};
             const essays = await prisma.essay.findMany({
                 where,
                 orderBy: { updatedAt: "desc" },
-                select: {
-                    id: true,
-                    title: true,
-                    slug: true,
-                    coverImage: true,
-                    status: true,
-                    updatedAt: true,
-                    tags: { include: { tag: true } }, // The join
+                include: {
+                    tags: { include: { tag: true } },
                 },
             });
-            return res.status(200).json(flattenTagNames(essays));
+            return res.status(200).json(essays.map(flattenEssay));
         } catch (err) {
             console.error("Error fetching essays:", err);
             return res.status(500).json({ error: "Server error" });
@@ -116,10 +64,9 @@ export default async function handler(
                 });
             }
 
-            const parsedStatus = typeof status === "string" &&
-                    (Object.values(EssayStatus) as string[]).includes(status)
-                ? (status as EssayStatus)
-                : EssayStatus.DRAFT;
+            const parsedStatus: EssayStatus = isValidStatus(status)
+                ? status
+                : "DRAFT";
 
             const tagNames = Array.isArray(tags) ? (tags as string[]) : [];
 
@@ -174,23 +121,12 @@ export default async function handler(
                         })),
                     },
                 },
-                select: {
-                    id: true,
-                    title: true,
-                    slug: true,
-                    content: true,
-                    coverImage: true,
-                    imageCredit: true,
-                    albumRefProvider: true,
-                    albumRefId: true,
-                    status: true,
-                    updatedAt: true,
-                    publishedAt: true,
+                include: {
                     tags: { include: { tag: true } },
                 },
             });
 
-            const flatEssay = flattenTagNames([essay])[0];
+            const flatEssay = flattenEssay(essay);
             return res.status(201).json(flatEssay);
         } catch (err) {
             console.error("Error creating/upserting essays:", err);
