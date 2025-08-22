@@ -3,15 +3,6 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 const API_KEY = process.env.API_KEY || "";
 
-function requireApiKey(req: NextApiRequest, res: NextApiResponse): boolean {
-    const key = req.headers["x-api-key"];
-    if (!API_KEY || key !== API_KEY) {
-        res.status(401).json({ error: "Unauthorized" });
-        return false;
-    }
-    return true;
-}
-
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 export const prisma = globalForPrisma.prisma ??
@@ -24,12 +15,37 @@ const allowedOrigins = [
     "https://music-lamp.vercel.app",
 ];
 
+function requireApiKey(req: NextApiRequest, res: NextApiResponse): boolean {
+    const key = req.headers["x-api-key"];
+    if (!API_KEY || key !== API_KEY) {
+        res.status(401).json({ error: "Unauthorized" });
+        return false;
+    }
+    return true;
+}
+
 function flattenTags(essay: any) {
     if (!essay) return essay;
     return {
         ...essay,
         tags: (essay.tags ?? []).map((essayTag: any) => essayTag.tag.name),
     };
+}
+
+function nextPublishedAt(
+    incomingStatus: string | undefined,
+    prev: { status: string; publishedAt: Date | null } | null,
+) {
+    if (incomingStatus === "PUBLISHED") {
+        // set once and don't overwrite
+        return prev?.publishedAt ?? new Date();
+    }
+
+    if (incomingStatus && incomingStatus !== "PUBLISHED") {
+        return null;
+    }
+
+    return undefined;
 }
 
 export default async function handler(
@@ -88,6 +104,12 @@ export default async function handler(
                 tags,
                 // images: [],
             } = body ?? {};
+
+            const existing = await prisma.essay.findUnique({
+                where: { slug },
+                select: { status: true, publishedAt: true },
+            });
+
             const data: any = {};
             if (title !== undefined) data.title = title;
             if (content !== undefined) data.content = content;
@@ -120,6 +142,14 @@ export default async function handler(
                         },
                     })),
                 };
+            }
+
+            const incomingStatus = typeof status === "string"
+                ? status
+                : undefined;
+            const maybePublishedAt = nextPublishedAt(incomingStatus, existing);
+            if (maybePublishedAt !== undefined) {
+                data.publishedAt = maybePublishedAt;
             }
 
             const updated = await prisma.essay.update({

@@ -3,15 +3,6 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 const API_KEY = process.env.API_KEY || "";
 
-function requireApiKey(req: NextApiRequest, res: NextApiResponse): boolean {
-    const key = req.headers["x-api-key"];
-    if (!API_KEY || key !== API_KEY) {
-        res.status(401).json({ error: "Unauthorized" });
-        return false;
-    }
-    return true;
-}
-
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 export const prisma = globalForPrisma.prisma ??
@@ -24,11 +15,36 @@ const allowedOrigins = [
     "https://music-lamp.vercel.app",
 ];
 
+function requireApiKey(req: NextApiRequest, res: NextApiResponse): boolean {
+    const key = req.headers["x-api-key"];
+    if (!API_KEY || key !== API_KEY) {
+        res.status(401).json({ error: "Unauthorized" });
+        return false;
+    }
+    return true;
+}
+
 function flattenTagNames(essays: any[]) {
     return essays.map((essay) => ({
         ...essay,
         tags: (essay.tags ?? []).map((essayTag: any) => essayTag.tag.name),
     }));
+}
+
+function nextPublishedAt(
+    incomingStatus: string | undefined,
+    prev: { status: string; publishedAt: Date | null } | null,
+) {
+    if (incomingStatus === "PUBLISHED") {
+        // set once and don't overwrite
+        return prev?.publishedAt ?? new Date();
+    }
+
+    if (incomingStatus && incomingStatus !== "PUBLISHED") {
+        return null;
+    }
+
+    return undefined;
 }
 
 export default async function handler(
@@ -107,6 +123,11 @@ export default async function handler(
 
             const tagNames = Array.isArray(tags) ? (tags as string[]) : [];
 
+            const existing = await prisma.essay.findUnique({
+                where: { slug },
+                select: { status: true, publishedAt: true },
+            });
+
             const essay = await prisma.essay.upsert({
                 where: { slug },
                 update: {
@@ -117,6 +138,7 @@ export default async function handler(
                     imageCredit: imageCredit ?? null,
                     albumRefProvider: albumRefProvider ?? null,
                     albumRefId: albumRefId ?? null,
+                    publishedAt: nextPublishedAt(status, existing),
                     tags: {
                         deleteMany: {},
                         create: tagNames.map((name) => ({
@@ -138,6 +160,9 @@ export default async function handler(
                     imageCredit: imageCredit ?? null,
                     albumRefProvider: albumRefProvider ?? null,
                     albumRefId: albumRefId ?? null,
+                    publishedAt: parsedStatus === "PUBLISHED"
+                        ? new Date()
+                        : null,
                     tags: {
                         create: tagNames.map((name) => ({
                             tag: {
@@ -160,6 +185,7 @@ export default async function handler(
                     albumRefId: true,
                     status: true,
                     updatedAt: true,
+                    publishedAt: true,
                     tags: { include: { tag: true } },
                 },
             });
