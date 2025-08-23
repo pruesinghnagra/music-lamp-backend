@@ -6,6 +6,7 @@ import { prisma } from "@lib/prisma";
 import { requireApiKey } from "@lib/requireApiKey";
 import { flattenEssay, nextPublishedAt } from "@lib/essay";
 import { setCorsHeaders } from "@lib/cors";
+import { resolveCover } from "@lib/imageResolver";
 
 export default async function handler(
     req: NextApiRequest,
@@ -75,14 +76,34 @@ export default async function handler(
                 select: { status: true, publishedAt: true },
             });
 
+            let resolvedCoverImage = coverImage ?? null;
+            let resolvedImageCredit = imageCredit ?? null;
+
+            if (!resolvedCoverImage && albumRefProvider && albumRefId) {
+                try {
+                    const { url, credit } = await resolveCover({
+                        provider: String(albumRefProvider),
+                        refId: String(albumRefId),
+                    });
+                    if (url) {
+                        resolvedCoverImage = url;
+                        if (!resolvedImageCredit && credit) {
+                            resolvedImageCredit = credit;
+                        }
+                    }
+                } catch (e) {
+                    console.warn("cover resolve (POST) failed:", e);
+                }
+            }
+
             const essay = await prisma.essay.upsert({
                 where: { slug },
                 update: {
                     title,
                     content,
                     status: parsedStatus,
-                    coverImage: coverImage ?? null,
-                    imageCredit: imageCredit ?? null,
+                    coverImage: resolvedCoverImage,
+                    imageCredit: resolvedImageCredit,
                     albumRefProvider: albumRefProvider ?? null,
                     albumRefId: albumRefId ?? null,
                     publishedAt: nextPublishedAt(status, existing),
@@ -103,8 +124,8 @@ export default async function handler(
                     slug,
                     content,
                     status: parsedStatus,
-                    coverImage: coverImage ?? null,
-                    imageCredit: imageCredit ?? null,
+                    coverImage: resolvedCoverImage,
+                    imageCredit: resolvedImageCredit,
                     albumRefProvider: albumRefProvider ?? null,
                     albumRefId: albumRefId ?? null,
                     publishedAt: parsedStatus === "PUBLISHED"

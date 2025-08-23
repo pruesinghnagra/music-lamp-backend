@@ -5,6 +5,7 @@ import { prisma } from "@lib/prisma";
 import { requireApiKey } from "@lib/requireApiKey";
 import { flattenEssay, nextPublishedAt } from "@lib/essay";
 import { setCorsHeaders } from "@lib/cors";
+import { resolveCover } from "@lib/imageResolver";
 
 export default async function handler(
     req: NextApiRequest,
@@ -38,6 +39,30 @@ export default async function handler(
             if (!essay) {
                 return res.status(404).json({ error: "Essay not found" });
             }
+
+            if (
+                !essay.coverImage && essay.albumRefProvider && essay.albumRefId
+            ) {
+                const { url, credit } = await resolveCover({
+                    provider: essay.albumRefProvider,
+                    refId: essay.albumRefId,
+                });
+                if (url) {
+                    // optional persist so future reads are fast
+                    await prisma.essay.update({
+                        where: { slug },
+                        data: {
+                            coverImage: url,
+                            imageCredit: essay.imageCredit ?? credit ?? null,
+                        },
+                    });
+                    essay.coverImage = url;
+                    if (!essay.imageCredit && credit) {
+                        essay.imageCredit = credit;
+                    }
+                }
+            }
+
             return res.status(200).json(flattenEssay(essay));
         } catch (err) {
             console.error("GET /essays/[slug] error", err);
