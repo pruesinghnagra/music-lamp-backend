@@ -14,22 +14,23 @@ enum EssayStatus {
 }
 
 model Essay {
-  id            String      @id @default(uuid())
-  title         String
-  slug          String      @unique @db.VarChar(120)
-  content       String
-  coverImage    String?
-  imageCredit   String?     // credit for cover only (optional)
+  id               String      @id @default(uuid())
+  title            String
+  slug             String      @unique @db.VarChar(120)
+  content          String
+  coverImageId     String?     @unique
+  coverImage       Media?      @relation("CoverImage", fields: [coverImageId], references: [id])
+  imageCredit      String? // credit for cover only (optional)
   albumRefProvider String?
-  albumRefId    String?
-  status        EssayStatus @default(DRAFT)
-  publishedAt   DateTime?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  albumRefId       String?
+  status           EssayStatus @default(DRAFT)
+  publishedAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   // relations
-  tags          EssayTag[]
-  images        Media[]
+  tags   EssayTag[]
+  images Media[]
 
   @@index([status])
   @@index([publishedAt])
@@ -45,8 +46,8 @@ model Tag {
 model EssayTag {
   essayId String
   tagId   String
-  essay   Essay @relation(fields: [essayId], references: [id], onDelete: Cascade)
-  tag     Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  essay   Essay  @relation(fields: [essayId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@id([essayId, tagId])
   @@index([tagId])
@@ -54,7 +55,7 @@ model EssayTag {
 
 model Media {
   id       String  @id @default(cuid())
-  essayId  String
+  essayId  String?
   url      String
   alt      String?
   credit   String?
@@ -64,7 +65,8 @@ model Media {
   provider String?
   sourceId String?
 
-  essay    Essay   @relation(fields: [essayId], references: [id], onDelete: Cascade)
+  essay         Essay? @relation(fields: [essayId], references: [id], onDelete: Cascade)
+  coverForEssay Essay? @relation("CoverImage")
 
   @@index([essayId])
   @@index([order])
