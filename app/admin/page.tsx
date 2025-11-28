@@ -287,7 +287,6 @@ export default function AdminPage() {
                 >
                   Delete
                 </button>
-                <pre>{JSON.stringify(images, null, 2)}</pre>
               </li>
             );
           })}
