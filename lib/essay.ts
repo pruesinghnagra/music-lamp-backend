@@ -17,14 +17,23 @@ export function nextPublishedAt(
 }
 
 export type EssayWithTags = Prisma.EssayGetPayload<{
-    include: { tags: { include: { tag: true } } };
+    include: {
+        tags: { include: { tag: true } };
+        images: true;
+        coverImage: true;
+    };
 }>;
 
-export type EssayFlattened = Omit<EssayWithTags, "tags"> & { tags: string[] };
+export type EssayFlattened = Omit<EssayWithTags, "tags" | "coverImage"> & {
+    tags: string[];
+    coverImage: string | null;
+};
 
 export function flattenEssay(essay: EssayWithTags): EssayFlattened {
+    const { tags, coverImage, ...rest } = essay as any;
     return {
-        ...essay,
-        tags: (essay.tags ?? []).map((et: any) => et.tag.name),
+        ...rest,
+        tags: (tags ?? []).map((et: any) => et.tag.name),
+        coverImage: coverImage ? coverImage.url : null,
     };
 }
