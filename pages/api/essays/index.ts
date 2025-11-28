@@ -36,6 +36,8 @@ export default async function handler(
                 orderBy: { updatedAt: "desc" },
                 include: {
                     tags: { include: { tag: true } },
+                    images: true,
+                    coverImage: true,
                 },
             });
             return res.status(200).json(essays.map(flattenEssay));
@@ -96,13 +98,29 @@ export default async function handler(
                 }
             }
 
+            let coverImageDataForUpdate: { coverImageId?: string | null } = {};
+            let coverImageDataForCreate: { coverImageId?: string | null } = {};
+
+            if (resolvedCoverImage) {
+                const media = await prisma.media.create({
+                    data: {
+                        url: resolvedCoverImage,
+                        credit: resolvedImageCredit ?? null,
+                        provider: albumRefProvider ?? undefined,
+                        sourceId: albumRefId ?? undefined,
+                    },
+                });
+
+                coverImageDataForUpdate.coverImageId = media.id;
+                coverImageDataForCreate.coverImageId = media.id;
+            }
+
             const essay = await prisma.essay.upsert({
                 where: { slug },
                 update: {
                     title,
                     content,
                     status: parsedStatus,
-                    coverImage: resolvedCoverImage,
                     imageCredit: resolvedImageCredit,
                     albumRefProvider: albumRefProvider ?? null,
                     albumRefId: albumRefId ?? null,
@@ -118,13 +136,13 @@ export default async function handler(
                             },
                         })),
                     },
+                    ...coverImageDataForUpdate,
                 },
                 create: {
                     title,
                     slug,
                     content,
                     status: parsedStatus,
-                    coverImage: resolvedCoverImage,
                     imageCredit: resolvedImageCredit,
                     albumRefProvider: albumRefProvider ?? null,
                     albumRefId: albumRefId ?? null,
@@ -141,9 +159,12 @@ export default async function handler(
                             },
                         })),
                     },
+                    ...coverImageDataForUpdate,
                 },
                 include: {
                     tags: { include: { tag: true } },
+                    images: true,
+                    coverImage: true,
                 },
             });
 

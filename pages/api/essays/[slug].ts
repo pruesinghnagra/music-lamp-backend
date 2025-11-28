@@ -33,6 +33,7 @@ export default async function handler(
                 include: {
                     tags: { include: { tag: true } },
                     images: { orderBy: { order: "asc" } },
+                    coverImage: true,
                 },
             });
 
@@ -48,15 +49,24 @@ export default async function handler(
                     refId: essay.albumRefId,
                 });
                 if (url) {
-                    // optional persist so future reads are fast
+                    const media = await prisma.media.create({
+                        data: {
+                            url,
+                            credit: credit ?? null,
+                            provider: essay.albumRefProvider ?? undefined,
+                            sourceId: essay.albumRefId ?? undefined,
+                        },
+                    });
+
                     await prisma.essay.update({
                         where: { slug },
                         data: {
-                            coverImage: url,
+                            coverImageId: media.id,
                             imageCredit: essay.imageCredit ?? credit ?? null,
                         },
                     });
-                    essay.coverImage = url;
+
+                    (essay as any).coverImage = media;
                     if (!essay.imageCredit && credit) {
                         essay.imageCredit = credit;
                     }
@@ -91,9 +101,29 @@ export default async function handler(
             });
 
             const data: any = {};
+
             if (title !== undefined) data.title = title;
             if (content !== undefined) data.content = content;
-            if (coverImage !== undefined) data.coverImage = coverImage ?? null;
+
+            if (coverImage !== undefined) {
+                if (coverImage === null) {
+                    data.coverImageId = null;
+                } else if (
+                    typeof coverImage === "string" &&
+                    coverImage.trim().length > 0
+                ) {
+                    const media = await prisma.media.create({
+                        data: {
+                            url: coverImage,
+                            credit: imageCredit ?? null,
+                            provider: albumRefProvider ?? undefined,
+                            sourceId: albumRefId ?? undefined,
+                        },
+                    });
+                    data.coverImageId = media.id;
+                }
+            }
+
             if (imageCredit !== undefined) {
                 data.imageCredit = imageCredit ?? null;
             }
@@ -135,6 +165,7 @@ export default async function handler(
                 include: {
                     tags: { include: { tag: true } },
                     images: { orderBy: { order: "asc" } },
+                    coverImage: true,
                 },
             });
 
