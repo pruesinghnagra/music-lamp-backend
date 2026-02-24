@@ -7,9 +7,5 @@ export default async function AdminPage() {
   const cookieStore = await cookies();
   const session = cookieStore.get("admin_session");
 
-  if (!session) {
-    redirect("/admin/login");
-  }
-
   return <AdminDashboard />;
 }
