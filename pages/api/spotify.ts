@@ -1,17 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import axios from "axios";
+import { setCorsHeaders } from "@lib/cors";
 
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse,
 ) {
-    const allowedOrigin = process.env.NODE_ENV === "production"
-        ? "https://music-lamp.vercel.app"
-        : "http://localhost:5173";
-
-    res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
-    res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    setCorsHeaders(res, req.headers.origin, ["GET", "OPTIONS"]);
 
     if (req.method === "OPTIONS") {
         return res.status(200).end();
