@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import bcfetch from "bandcamp-fetch";
-import type { Album, SearchResultArtist } from "bandcamp-fetch";
+import type { SearchResultArtist } from "bandcamp-fetch";
 import { setCorsHeaders } from "@lib/cors";
 
 export default async function handler(
@@ -45,59 +45,12 @@ export default async function handler(
         const discography = await bcfetch.band.getDiscography({
             bandUrl: artist.url,
         });
-        const albumReleases = discography.filter((a) =>
-            a.type === "album" && a.url
-        ).map((a) => a as { url: string; type: "album" });
-
-        const albumDetails = await Promise.all(
-            albumReleases.map(async (album) => {
-                const info = await bcfetch.album.getInfo({
-                    albumUrl: album.url!,
-                });
-                const trackDurations = info.tracks?.map((t) =>
-                    t.duration || 0
-                ) || [];
-                const streamableTracks = info.tracks?.filter((t) =>
-                    !!t.streamUrl
-                ).length || 0;
-                const tracksWithLyrics = info.tracks?.filter((t) =>
-                    !!t.lyrics
-                ).length || 0;
-
-                return {
-                    ...info,
-                    numTracks: info.tracks?.length || 0,
-                    totalTrackDuration: trackDurations.reduce(
-                        (sum, d) => sum + d,
-                        0,
-                    ),
-                    averageTrackDuration: trackDurations.length > 0
-                        ? trackDurations.reduce((sum, d) => sum + d, 0) /
-                            trackDurations.length
-                        : 0,
-                    streamableTracks,
-                    tracksWithLyrics,
-                };
-            }),
-        );
-
-        const totalAlbums = albumDetails.length;
-        const averageTracksPerAlbum = albumDetails.length > 0
-            ? albumDetails.reduce((sum, a) => sum + a.numTracks, 0) /
-                albumDetails.length
-            : 0;
-        const totalTrackCount = albumDetails.reduce(
-            (sum, a) => sum + a.numTracks,
-            0,
-        );
-        const totalStreamableTracks = albumDetails.reduce(
-            (sum, a) => sum + a.streamableTracks,
-            0,
-        );
-        const totalTracksWithLyrics = albumDetails.reduce(
-            (sum, a) => sum + a.tracksWithLyrics,
-            0,
-        );
+        const totalAlbums = discography
+            .filter((a) => a.type === "album" && a.url)
+            .map((a) => ({
+                name: a.name,
+                url: a.url,
+            }));
 
         const metricSummary = {
             artist: {
@@ -112,19 +65,6 @@ export default async function handler(
             },
             discography: {
                 totalAlbums,
-                albumsWithReleaseDate:
-                    albumDetails.filter((a) => !!a.releaseDate).length,
-                albumsWithTrackCount:
-                    albumDetails.filter((a) => a.numTracks > 0).length,
-                albumsWithImage:
-                    albumDetails.filter((a) => !!a.imageUrl).length,
-                albumsWithDescription:
-                    albumDetails.filter((a) => !!a.description).length,
-                albumsWithLabel: albumDetails.filter((a) => !!a.label).length,
-                averageTracksPerAlbum,
-                totalTrackCount,
-                totalStreamableTracks,
-                totalTracksWithLyrics,
             },
         };
 
